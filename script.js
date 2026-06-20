@@ -1,35 +1,40 @@
 let model;
-let classNames = ["No Flood", "Flood"];
+let classNames = ["Flood", "No Flood"];
 
-const imageUpload = document.getElementById("imageUpload");
-const previewImage = document.getElementById("previewImage");
-const resultEl = document.getElementById("result");
-const confidenceEl = document.getElementById("confidence");
+const MODEL_URL = "./tfjs_model/model.json";
+const CLASS_NAMES_URL = "./tfjs_model/class_names.json";
 
 async function loadClassNames() {
   try {
-    const response = await fetch("./tfjs_model/class_names.json");
+    const response = await fetch(CLASS_NAMES_URL, { cache: "no-store" });
     if (response.ok) {
-      classNames = await response.json();
-      console.log("Class names loaded:", classNames);
+      const loadedNames = await response.json();
+      if (Array.isArray(loadedNames) && loadedNames.length > 0) {
+        classNames = loadedNames;
+      }
     }
   } catch (error) {
-    console.warn("class_names.json not loaded, using default class names.");
+    console.warn("class_names.json not found, using default class names.", error);
   }
 }
 
 async function loadModel() {
+  const resultEl = document.getElementById("result");
+  const confidenceEl = document.getElementById("confidence");
+  const predictButton = document.getElementById("predictButton");
+
   resultEl.innerText = "Loading model...";
   confidenceEl.innerText = "Please wait until the model is ready.";
+  predictButton.disabled = true;
 
   try {
     await loadClassNames();
 
-    model = await tf.loadLayersModel("./tfjs_model/model.json");
+    model = await tf.loadLayersModel(MODEL_URL);
 
-    console.log("Model loaded successfully");
     resultEl.innerText = "Model loaded successfully.";
-    confidenceEl.innerText = "Upload an image and click Predict Flood Status.";
+    confidenceEl.innerText = "Upload an image and click Predict.";
+    predictButton.disabled = false;
   } catch (error) {
     console.error("Model load error:", error);
     resultEl.innerText = "Model failed to load.";
@@ -37,32 +42,61 @@ async function loadModel() {
   }
 }
 
-loadModel();
+function showPreview(file) {
+  const preview = document.getElementById("previewImage");
+  const resultEl = document.getElementById("result");
+  const confidenceEl = document.getElementById("confidence");
 
-imageUpload.addEventListener("change", function (event) {
-  const file = event.target.files[0];
+  if (!file) return;
+
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = "block";
+
+  resultEl.innerText = "Image uploaded.";
+  confidenceEl.innerText = model ? "Click Predict to classify the image." : "Waiting for model to load.";
+}
+
+document.getElementById("imageUpload").addEventListener("change", (event) => {
+  showPreview(event.target.files[0]);
+});
+
+const dropArea = document.getElementById("dropArea");
+
+dropArea.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  dropArea.classList.add("dragover");
+});
+
+dropArea.addEventListener("dragleave", () => {
+  dropArea.classList.remove("dragover");
+});
+
+dropArea.addEventListener("drop", (event) => {
+  event.preventDefault();
+  dropArea.classList.remove("dragover");
+
+  const file = event.dataTransfer.files[0];
 
   if (file) {
-    previewImage.src = URL.createObjectURL(file);
-    previewImage.style.display = "block";
-
-    resultEl.innerText = "Image uploaded.";
-    confidenceEl.innerText = model
-      ? "Click Predict Flood Status."
-      : "Waiting for model to load.";
+    document.getElementById("imageUpload").files = event.dataTransfer.files;
+    showPreview(file);
   }
 });
 
 async function predictImage() {
+  const image = document.getElementById("previewImage");
+  const resultEl = document.getElementById("result");
+  const confidenceEl = document.getElementById("confidence");
+
   if (!model) {
     resultEl.innerText = "Model is not ready.";
-    confidenceEl.innerText = "Please wait until the model is loaded.";
+    confidenceEl.innerText = "Please wait until the model has loaded.";
     return;
   }
 
-  if (!previewImage.src) {
-    resultEl.innerText = "Please upload an image first.";
-    confidenceEl.innerText = "";
+  if (!image.src) {
+    resultEl.innerText = "No image selected.";
+    confidenceEl.innerText = "Please upload an image first.";
     return;
   }
 
@@ -70,37 +104,35 @@ async function predictImage() {
   confidenceEl.innerText = "";
 
   try {
-    const tensor = tf.browser.fromPixels(previewImage)
-      .resizeBilinear([224, 224])
-      .expandDims(0)
-      .toFloat()
-      .div(255.0);
+    const input = tf.tidy(() => {
+      return tf.browser.fromPixels(image)
+        .resizeBilinear([224, 224])
+        .toFloat()
+        .div(255.0)
+        .expandDims(0);
+    });
 
-    const prediction = model.predict(tensor);
-    const predictionData = await prediction.data();
+    const output = model.predict(input);
+    const data = await output.data();
 
-    let predictedIndex;
-    let confidence;
+    input.dispose();
+    output.dispose();
 
-    if (predictionData.length === 1) {
-      const probability = predictionData[0];
-      predictedIndex = probability >= 0.5 ? 1 : 0;
-      confidence = predictedIndex === 1 ? probability : 1 - probability;
-    } else {
-      confidence = Math.max(...predictionData);
-      predictedIndex = predictionData.indexOf(confidence);
-    }
+    let predictedIndex = 0;
+    let confidence = 0;
 
-    const predictedLabel = classNames[predictedIndex];
+    confidence = Math.max(...data);
+    predictedIndex = data.indexOf(confidence);
+
+    const predictedLabel = classNames[predictedIndex] || "Class " + predictedIndex;
 
     resultEl.innerText = "Prediction: " + predictedLabel;
     confidenceEl.innerText = "Confidence: " + (confidence * 100).toFixed(2) + "%";
-
-    tensor.dispose();
-    prediction.dispose();
   } catch (error) {
     console.error("Prediction error:", error);
     resultEl.innerText = "Prediction failed.";
     confidenceEl.innerText = error.message;
   }
 }
+
+loadModel();

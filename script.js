@@ -1,5 +1,5 @@
 let model;
-let classNames = ["Flood", "No Flood"];
+let classNames = ["Flood Images", "Non Flood Images"];
 
 const MODEL_URL = "./tfjs_model/model.json";
 const CLASS_NAMES_URL = "./tfjs_model/class_names.json";
@@ -7,12 +7,16 @@ const CLASS_NAMES_URL = "./tfjs_model/class_names.json";
 async function loadClassNames() {
   try {
     const response = await fetch(CLASS_NAMES_URL, { cache: "no-store" });
+
     if (response.ok) {
       const loadedNames = await response.json();
+
       if (Array.isArray(loadedNames) && loadedNames.length > 0) {
         classNames = loadedNames;
       }
     }
+
+    console.log("Class names:", classNames);
   } catch (error) {
     console.warn("class_names.json not found, using default class names.", error);
   }
@@ -32,11 +36,14 @@ async function loadModel() {
 
     model = await tf.loadGraphModel(MODEL_URL);
 
+    console.log("Model loaded successfully");
+
     resultEl.innerText = "Model loaded successfully.";
     confidenceEl.innerText = "Upload an image and click Predict.";
     predictButton.disabled = false;
   } catch (error) {
     console.error("Model load error:", error);
+
     resultEl.innerText = "Model failed to load.";
     confidenceEl.innerText = error.message;
   }
@@ -53,7 +60,9 @@ function showPreview(file) {
   preview.style.display = "block";
 
   resultEl.innerText = "Image uploaded.";
-  confidenceEl.innerText = model ? "Click Predict to classify the image." : "Waiting for model to load.";
+  confidenceEl.innerText = model
+    ? "Click Predict to classify the image."
+    : "Waiting for model to load.";
 }
 
 document.getElementById("imageUpload").addEventListener("change", (event) => {
@@ -119,15 +128,28 @@ async function predictImage() {
     input.dispose();
     output.dispose();
 
-    const confidence = Math.max(...data);
-    const predictedIndex = data.indexOf(confidence);
+    console.log("Raw prediction:", data);
+    console.log("Class names:", classNames);
 
-    const predictedLabel = classNames[predictedIndex] || "Class " + predictedIndex;
+    let confidence = Math.max(...data);
+    let predictedIndex = data.indexOf(confidence);
+
+    /*
+      FIX LABEL:
+      Dari hasil tes, model di web membaca label kebalik.
+      Jadi index prediksi dibalik:
+      0 -> 1
+      1 -> 0
+    */
+    const fixedIndex = predictedIndex === 0 ? 1 : 0;
+
+    const predictedLabel = classNames[fixedIndex] || "Class " + fixedIndex;
 
     resultEl.innerText = "Prediction: " + predictedLabel;
     confidenceEl.innerText = "Confidence: " + (confidence * 100).toFixed(2) + "%";
   } catch (error) {
     console.error("Prediction error:", error);
+
     resultEl.innerText = "Prediction failed.";
     confidenceEl.innerText = error.message;
   }

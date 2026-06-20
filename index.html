@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flood Image Classification | SDG 11 & 13</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <div class="badge">SDG 11 · SDG 13 · Disaster Risk Reduction</div>
+      <h1>Flood Image Classification</h1>
+      <p>
+        Upload a flood-related image and let the CNN model classify whether the scene
+        shows <b>Flood</b> or <b>No Flood</b>.
+      </p>
+    </section>
+
+    <section class="card">
+      <div class="upload-area" id="dropArea">
+        <input type="file" id="imageUpload" accept="image/*" hidden />
+        <button class="upload-btn" onclick="document.getElementById('imageUpload').click()">
+          Choose Image
+        </button>
+        <p>or drag and drop an image here</p>
+      </div>
+
+      <div class="preview-wrapper">
+        <img id="previewImage" alt="Preview image" />
+      </div>
+
+      <button id="predictButton" class="predict-btn" onclick="predictImage()" disabled>
+        Predict Flood Status
+      </button>
+
+      <div class="result-box">
+        <h2 id="result">Loading model...</h2>
+        <p id="confidence">Please wait until the model is ready.</p>
+      </div>
+    </section>
+
+    <section class="info-grid">
+      <div>
+        <h3>Purpose</h3>
+        <p>Helps screen flood and non-flood images from field reports, CCTV, or public documentation.</p>
+      </div>
+      <div>
+        <h3>SDG Relevance</h3>
+        <p>Supports resilient cities and climate-related disaster response monitoring.</p>
+      </div>
+      <div>
+        <h3>Input Type</h3>
+        <p>Use real scene images: flooded roads, inundated areas, normal roads, or non-flood environments.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

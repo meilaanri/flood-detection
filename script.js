@@ -30,7 +30,7 @@ async function loadModel() {
   try {
     await loadClassNames();
 
-    model = await tf.loadLayersModel(MODEL_URL);
+    model = await tf.loadGraphModel(MODEL_URL);
 
     resultEl.innerText = "Model loaded successfully.";
     confidenceEl.innerText = "Upload an image and click Predict.";
@@ -108,7 +108,8 @@ async function predictImage() {
       return tf.browser.fromPixels(image)
         .resizeBilinear([224, 224])
         .toFloat()
-        .div(255.0)
+        .div(127.5)
+        .sub(1)
         .expandDims(0);
     });
 
@@ -118,11 +119,8 @@ async function predictImage() {
     input.dispose();
     output.dispose();
 
-    let predictedIndex = 0;
-    let confidence = 0;
-
-    confidence = Math.max(...data);
-    predictedIndex = data.indexOf(confidence);
+    const confidence = Math.max(...data);
+    const predictedIndex = data.indexOf(confidence);
 
     const predictedLabel = classNames[predictedIndex] || "Class " + predictedIndex;
 
